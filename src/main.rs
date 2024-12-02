@@ -3,14 +3,14 @@ use num_complex::Complex;
 use std::thread::sleep;
 use std::time::Duration;
 
-const SCALE: usize = 5;
+const SCALE: usize = 3;
 const WIDTH: usize = 320 * SCALE;
 const HEIGHT: usize = 200 * SCALE;
-
 const FPS: usize = 60;
 
 fn main() {
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
+    let mut detail:u32 = 255;
     let mut window = Window::new(
         "MandelBrot Generator - NumpadPlus for more Detail, NumpadMinus for Less, Enter to Generate",
         WIDTH,
@@ -24,51 +24,53 @@ fn main() {
         });
 
     window.set_target_fps(FPS);
-    let mut frame:u32 = 0;
-    let mut pixel:u32 = 0;
-    let mut detail:u32 = 255;
 
-    while window.is_open() && !window.is_key_down(Key::Escape) {
-        frame += 1;
+    let mut update_window = |buffer: &mut Vec<u32>, window: &mut Window| {
+        let mut pixel: u32 = 0;
 
-        let mut update = |detail: u32| {
+
+        let mut generate = |details: u32| {
             for i in buffer.iter_mut() {
                 pixel += 1;
-
-                let x: u32 = pixel % WIDTH as u32;
-                let y: u32 = pixel / WIDTH as u32;
-
-                let mut x_float: f32 = x as f32 / WIDTH as f32;
-                x_float = x_float * 4.0 - 2.0; // Maps to range [-2, 2]
-                let mut y_float: f32 = y as f32 / HEIGHT as f32;
-                y_float = y_float * 4.0 - 2.0; // Maps to range [-2, 2]
-                let color: u32 = get_mandelbrot_color(x_float, y_float, detail);
-
-                *i = color;
+                *i = get_pixel(details, pixel);
             }
-        };;
+        };
 
         if window.is_key_pressed(Key::NumPadPlus, KeyRepeat::No) {
             detail *= 2;
-            update(detail)
+            generate(detail);
+            println!("{detail}")
         } else if window.is_key_pressed(Key::NumPadMinus, KeyRepeat::No) && detail >= 2 {
             detail /= 2;
-            update(detail)
+            generate(detail);
+            println!("{detail}")
         } else if window.is_key_pressed(Key::Enter, KeyRepeat::No) {
-            update(detail)
+            generate(detail)
         }
 
-        window.update_with_buffer(&buffer, WIDTH, HEIGHT);
-        pixel = 0;
+        window.update_with_buffer(&buffer, WIDTH, HEIGHT).unwrap();
+    };
+
+
+    while window.is_open() && !window.is_key_down(Key::Escape) {
+        update_window(&mut buffer, &mut window);
         sleep(Duration::from_millis(1000) / FPS as u32);
     }
-
-
 }
 
-fn get_mandelbrot_color(x:f32, y:f32, detail:u32) -> u32
+fn get_pixel(detail: u32, pixel:u32) -> u32 {
+        let x: u32 = pixel % WIDTH as u32;
+        let y: u32 = pixel / WIDTH as u32;
+        let mut x_float: f32 = x as f32 / WIDTH as f32;
+        x_float = x_float * 4.0 - 2.0; // Maps to range [-2, 2]
+        let mut y_float: f32 = y as f32 / HEIGHT as f32;
+        y_float = y_float * 4.0 - 2.0; // Maps to range [-2, 2]
+        let color: u32 = get_mandelbrot_color(x_float, y_float, detail, 16);
+        color
+}
+
+fn get_mandelbrot_color(x:f32, y:f32, detail:u32, scale:u32) -> u32
 {
-    let scale:u32 = 16;
     let start:Complex<f64> = Complex { re:x as f64, im:y as f64};
     let mut current:Complex<f64> = Complex { re:0.0, im:0.0};
 
